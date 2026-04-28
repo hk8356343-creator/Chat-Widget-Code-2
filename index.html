@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Premium Chat Widget Demo</title>
+  </head>
+  <body>
+    <script>
+      window.ChatWidgetConfig = {
+        webhook: {
+          url: "https://n8n.doshme.me/webhook/45a375b3-d60c-4728-95cc-b022308fa02b/chat",
+          route: "general",
+          timeoutMs: 15000
+        },
+
+        company: {
+          logoUrl: "https://i.postimg.cc/SNWGFBQ2/SWautomation-logo.png",
+          name: "Your Company Support",
+          responseTimeText: "We typically respond right away"
+        },
+
+        welcome: {
+          enabled: true,
+          message: "Hi 👋, how can we help?"
+        },
+
+        teaser: {
+          enabled: true,
+          title: "What brings you here today?",
+          subtitle: "Tap here to start a chat",
+          ctaText: "Start chat",
+          autoShowDelayMs: 2000
+        },
+
+        social: {
+          enabled: true,
+          items: [
+            { name: "Facebook", url: "https://facebook.com/yourpage" },
+            { name: "WhatsApp", url: "https://wa.me/YOURWHATSAPPNUMBERWITHCOUNTRYCODE" },
+            { name: "Instagram", url: "https://instagram.com/yourprofile" }
+          ]
+        },
+
+        ui: {
+          theme: "light",
+          position: "right",
+          accentColor: "#8b5cf6"
+        },
+
+        style: {
+          primaryColor: "#0af5e5",
+          secondaryColor: "#6366f1",
+          backgroundColor: "#ffffff",
+          textColor: "#0b1220",
+          botBubbleColor: "#0af5e5",
+          userBubbleTextColor: "#ffffff",
+          headerBackground: "#ffffff",
+          inputBackground: "#ffffff",
+          inputTextColor: "#0f172a",
+          borderColor: "#e6eaf2",
+          teaserBackground: "#ffffff",
+          teaserTextColor: "#0f172a",
+          launcherTextColor: "#ffffff"
+        },
+
+        behavior: {
+          enableSounds: true
+        }
+      };
+    </script>
+
+    <script src="./chat-widget.js"></script>
+  </body>
+</html>
