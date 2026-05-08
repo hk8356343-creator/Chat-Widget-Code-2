@@ -1,12 +1,13 @@
 /*!
  * Premium Chat Widget
  * File: chat-widget.js
- * Version: 1.2.1
+ * Version: 1.3.0
  * Notes:
  * - Full file with all previous features preserved
  * - Added extended style color controls via config.style.*
  * - Supports both ui.accentColor and style.* palette overrides
- * - NEW: Added refresh/clear chat history button in header
+ * - Refresh/clear chat history button in header
+ * - NEW: File upload with validation and preview
  */
 
 (function () {
@@ -105,6 +106,21 @@
     pick(val, fallback) {
       return typeof val === "string" && val.trim() ? val.trim() : fallback;
     },
+    fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    },
+    formatFileSize(bytes) {
+      if (bytes === 0) return "0 Bytes";
+      const k = 1024;
+      const sizes = ["Bytes", "KB", "MB"];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return Math.round(bytes / Math.pow(k, i) * 100) / 100 + " " + sizes[i];
+    },
   };
 
   const DEFAULT_CONFIG = {
@@ -130,7 +146,6 @@
       showBrandLine: true,
     },
 
-    // NEW: richer style tokens (fully optional)
     style: {
       primaryColor: "",
       secondaryColor: "",
@@ -158,6 +173,9 @@
       persistKey: "premium_chat_widget_state_v1",
       teaserSessionKey: "premium_chat_widget_teaser_closed_session",
       autoScrollBehavior: "smooth",
+      enableFileUpload: true,
+      maxFileSize: 5242880,
+      allowedFileTypes: ["image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf", "application/msword", "text/plain"],
     },
 
     webhook: {
@@ -206,6 +224,7 @@
       openButtonAria: "Open chat",
       teaserCloseAria: "Close teaser",
       refreshButtonAria: "Clear chat history",
+      uploadButtonAria: "Upload file",
     },
 
     callbacks: {
@@ -214,11 +233,12 @@
       onMessageSent: null,
       onMessageReceived: null,
       onError: null,
+      onFileUpload: null,
     },
 
     metadata: {
       source: "website-chat-widget",
-      version: "1.2.1",
+      version: "1.3.0",
       extra: {},
     },
 
@@ -393,6 +413,7 @@
         teaserClosedInSession: false,
         hasShownWelcome: false,
         initialized: false,
+        isUploading: false,
       };
 
       this.els = {};
@@ -405,6 +426,8 @@
         handleTeaserOpen: this.handleTeaserOpen.bind(this),
         handleSystemThemeChange: this.handleSystemThemeChange.bind(this),
         handleRefreshClick: this.handleRefreshClick.bind(this),
+        handleFileClick: this.handleFileClick.bind(this),
+        handleFileChange: this.handleFileChange.bind(this),
       };
     }
 
@@ -582,6 +605,14 @@
 }
 .cw-time{font-size:11px;opacity:.6;margin-top:4px}
 .cw-msg-col{display:flex;flex-direction:column}
+.cw-file-preview{
+  max-width:150px;margin-top:6px;border-radius:8px;overflow:hidden;background:rgba(0,0,0,.05);
+}
+.cw-file-preview img{width:100%;height:auto;display:block}
+.cw-file-info{
+  font-size:12px;padding:6px 8px;background:rgba(0,0,0,.08);display:flex;align-items:center;gap:6px;
+}
+.cw-file-icon{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center}
 .cw-typing{align-self:flex-start;display:none;align-items:center;gap:8px;padding:0 14px 8px}
 .cw-typing.active{display:flex}
 .cw-typing-bubble{background:var(--cw-bot-bubble);padding:10px 12px;border-radius:14px;display:flex;gap:4px}
@@ -597,6 +628,13 @@
   border-radius:12px;padding:10px 12px;font-size:14px;outline:none;transition:border .2s ease, box-shadow .2s ease;
 }
 .cw-input:focus{border-color:var(--cw-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--cw-accent) 22%, transparent)}
+.cw-upload{
+  border:none;background:transparent;color:inherit;opacity:.7;cursor:pointer;width:34px;height:34px;
+  border-radius:8px;display:flex;align-items:center;justify-content:center;transition:background .2s ease,opacity .2s ease;
+}
+.cw-upload:hover{background:rgba(148,163,184,.16);opacity:1}
+.cw-upload:disabled{opacity:.4;cursor:not-allowed}
+.cw-file-input{display:none}
 .cw-send{
   border:none;background:var(--cw-accent);color:#fff;border-radius:12px;padding:10px 14px;cursor:pointer;
   font-weight:600;transition:transform .16s ease,opacity .2s ease;
@@ -715,6 +753,14 @@
           </div>
 
           <div class="cw-input-wrap">
+            <input type="file" class="cw-file-input" data-cw="file-input" accept="${this.config.behavior.allowedFileTypes.join(',')}"/>
+            ${this.config.behavior.enableFileUpload ? `<button class="cw-upload" data-cw="upload" aria-label="${Utils.escapeHTML(this.config.labels.uploadButtonAria)}">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="17 8 12 3 7 8"></polyline>
+                <line x1="12" y1="3" x2="12" y2="15"></line>
+              </svg>
+            </button>` : ''}
             <input class="cw-input" data-cw="input" maxlength="${this.config.behavior.inputMaxLength}" placeholder="${Utils.escapeHTML(this.config.labels.inputPlaceholder)}" />
             <button class="cw-send" data-cw="send">${Utils.escapeHTML(this.config.labels.sendButton)}</button>
           </div>
@@ -731,6 +777,8 @@
       this.els.messages = root.querySelector('[data-cw="messages"]');
       this.els.input = root.querySelector('[data-cw="input"]');
       this.els.sendBtn = root.querySelector('[data-cw="send"]');
+      this.els.uploadBtn = root.querySelector('[data-cw="upload"]');
+      this.els.fileInput = root.querySelector('[data-cw="file-input"]');
       this.els.typingRow = root.querySelector('[data-cw="typing"]');
       this.els.teaser = root.querySelector('[data-cw="teaser"]');
       this.els.teaserClose = root.querySelector('[data-cw="teaser-close"]');
@@ -747,14 +795,123 @@
       this.els.input.addEventListener("keydown", this.bound.handleInputKeydown);
       this.els.teaserClose.addEventListener("click", this.bound.handleTeaserClose);
       this.els.teaserOpen.addEventListener("click", this.bound.handleTeaserOpen);
+      
       if (this.els.refreshBtn) {
         this.els.refreshBtn.addEventListener("click", this.bound.handleRefreshClick);
+      }
+      
+      if (this.els.uploadBtn) {
+        this.els.uploadBtn.addEventListener("click", this.bound.handleFileClick);
+      }
+      
+      if (this.els.fileInput) {
+        this.els.fileInput.addEventListener("change", this.bound.handleFileChange);
       }
 
       if (window.matchMedia) {
         const mql = window.matchMedia("(prefers-color-scheme: dark)");
         if (mql.addEventListener) mql.addEventListener("change", this.bound.handleSystemThemeChange);
         else if (mql.addListener) mql.addListener(this.bound.handleSystemThemeChange);
+      }
+    }
+
+    handleFileClick() {
+      this.els.fileInput?.click();
+    }
+
+    async handleFileChange(e) {
+      const files = e.target.files;
+      if (!files || files.length === 0) return;
+
+      const file = files[0];
+      e.target.value = "";
+
+      // Validate file
+      if (!this.config.behavior.allowedFileTypes.includes(file.type)) {
+        this.addMessage({
+          role: "bot",
+          text: `File type not allowed. Supported: ${this.config.behavior.allowedFileTypes.join(", ")}`,
+        });
+        return;
+      }
+
+      if (file.size > this.config.behavior.maxFileSize) {
+        this.addMessage({
+          role: "bot",
+          text: `File too large. Max size: ${Utils.formatFileSize(this.config.behavior.maxFileSize)}`,
+        });
+        return;
+      }
+
+      await this.sendFile(file);
+    }
+
+    async sendFile(file) {
+      this.state.isUploading = true;
+      if (this.els.uploadBtn) this.els.uploadBtn.disabled = true;
+      if (this.els.sendBtn) this.els.sendBtn.disabled = true;
+
+      try {
+        const base64 = await Utils.fileToBase64(file);
+        const sent = this.addMessage({
+          role: "user",
+          text: `📎 ${file.name} (${Utils.formatFileSize(file.size)})`,
+          meta: { type: "file", file: { name: file.name, size: file.size, base64 } },
+        });
+
+        if (typeof this.config.callbacks.onMessageSent === "function") this.config.callbacks.onMessageSent(sent);
+
+        this.setTyping(true);
+
+        const typingDelay =
+          Math.floor(
+            Math.random() *
+              (this.config.behavior.typingIndicatorMaxMs - this.config.behavior.typingIndicatorMinMs + 1)
+          ) + this.config.behavior.typingIndicatorMinMs;
+
+        const payload = {
+          sessionId: this.state.sessionId,
+          message: `📎 ${file.name}`,
+          file: {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            base64: base64,
+          },
+          timestamp: Utils.nowISO(),
+          route: Utils.getRouteInfo(),
+          user: Utils.getUserAgentInfo(),
+          metadata: {
+            source: this.config.metadata.source,
+            version: this.config.metadata.version,
+            ...this.config.metadata.extra,
+          },
+        };
+
+        const [response] = await Promise.all([this.webhook.sendMessage(payload), Utils.wait(typingDelay)]);
+        const botMsg = this.addMessage({
+          role: "bot",
+          text: response.text || "File received. Thank you!",
+          timestamp: response.timestamp || Utils.nowISO(),
+          meta: { raw: response },
+        });
+
+        this.sound.playNotification();
+        if (typeof this.config.callbacks.onMessageReceived === "function") this.config.callbacks.onMessageReceived(botMsg);
+        if (typeof this.config.callbacks.onFileUpload === "function") this.config.callbacks.onFileUpload(sent);
+      } catch (error) {
+        const fallback = this.addMessage({
+          role: "bot",
+          text: "Sorry — File upload failed. Please try again.",
+        });
+        if (typeof this.config.callbacks.onError === "function") this.config.callbacks.onError(error, fallback);
+        console.error("[ChatWidget] File upload failed:", error);
+      } finally {
+        this.state.isUploading = false;
+        this.setTyping(false);
+        if (this.els.uploadBtn) this.els.uploadBtn.disabled = false;
+        if (this.els.sendBtn) this.els.sendBtn.disabled = false;
+        this.els.input.focus();
       }
     }
 
@@ -800,18 +957,12 @@
     }
 
     refreshChat() {
-      // Clear all messages
       this.state.messages = [];
       this.state.hasShownWelcome = false;
       this.persistState();
-      
-      // Re-render messages
       this.renderMessages();
-      
-      // Show welcome message again
       this.handleWelcomeMessage();
       
-      // Visual feedback: rotate the refresh button
       if (this.els.refreshBtn) {
         this.els.refreshBtn.style.transform = "rotate(360deg)";
         setTimeout(() => {
@@ -914,9 +1065,21 @@
           </div>
         `;
       } else {
+        let content = `<div class="cw-bubble">${Utils.escapeHTML(message.text)}</div>`;
+        
+        // Show file preview if it's an image
+        if (message.meta?.type === "file" && message.meta?.file?.base64) {
+          const base64 = message.meta.file.base64;
+          if (base64.startsWith("data:image")) {
+            content += `<div class="cw-file-preview"><img src="${base64}" alt="uploaded"/></div>`;
+          } else {
+            content += `<div class="cw-file-info"><span class="cw-file-icon">📄</span><span>${Utils.escapeHTML(message.meta.file.name)}</span></div>`;
+          }
+        }
+
         row.innerHTML = `
           <div class="cw-msg-col" style="align-items:flex-end">
-            <div class="cw-bubble">${Utils.escapeHTML(message.text)}</div>
+            ${content}
             <div class="cw-time">${Utils.escapeHTML(time)}</div>
           </div>
         `;
@@ -958,6 +1121,7 @@
       if (typeof this.config.callbacks.onMessageSent === "function") this.config.callbacks.onMessageSent(sent);
 
       this.els.sendBtn.disabled = true;
+      if (this.els.uploadBtn) this.els.uploadBtn.disabled = true;
       this.setTyping(true);
 
       const typingDelay =
@@ -987,6 +1151,7 @@
       } finally {
         this.setTyping(false);
         this.els.sendBtn.disabled = false;
+        if (this.els.uploadBtn) this.els.uploadBtn.disabled = false;
         this.els.input.focus();
       }
     }
@@ -1013,6 +1178,9 @@
     }
     send(text) {
       if (this.instance) this.instance.sendUserMessage(text);
+    }
+    sendFile(file) {
+      if (this.instance) this.instance.sendFile(file);
     }
     clearHistory() {
       if (!this.instance) return;
