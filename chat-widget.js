@@ -202,6 +202,7 @@
       inputPlaceholder: "Type your message...",
       sendButton: "Send",
       closeButtonAria: "Close chat",
+      refreshButtonAria: "Clear chat history",
       openButtonAria: "Open chat",
       teaserCloseAria: "Close teaser",
     },
@@ -397,6 +398,7 @@
       this.bound = {
         handleLauncherClick: this.handleLauncherClick.bind(this),
         handleCloseClick: this.handleCloseClick.bind(this),
+        handleRefreshClick: this.handleRefreshClick.bind(this),
         handleSendClick: this.handleSendClick.bind(this),
         handleInputKeydown: this.handleInputKeydown.bind(this),
         handleTeaserClose: this.handleTeaserClose.bind(this),
@@ -551,6 +553,15 @@
   color:inherit;opacity:.7;transition:background .2s ease,opacity .2s ease;
 }
 .cw-close:hover{background:rgba(148,163,184,.16);opacity:1}
+.cw-header-actions{display:flex;align-items:center;gap:6px}
+.cw-refresh{
+  width:34px;height:34px;border:none;border-radius:10px;background:transparent;cursor:pointer;
+  color:inherit;opacity:.7;display:flex;align-items:center;justify-content:center;
+  transition:background .2s ease,opacity .2s ease,transform .3s ease;
+}
+.cw-refresh:hover{background:rgba(148,163,184,.16);opacity:1}
+.cw-refresh.is-rotating{animation:cw-refresh-spin .45s ease}
+@keyframes cw-refresh-spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .cw-messages{
   flex:1;overflow:auto;padding:14px 14px 10px;display:flex;flex-direction:column;gap:10px;
   scroll-behavior:smooth;
@@ -683,7 +694,15 @@
                 <div class="cw-subtitle">${Utils.escapeHTML(this.config.company.responseTimeText)}</div>
               </div>
             </div>
-            <button class="cw-close" aria-label="${Utils.escapeHTML(this.config.labels.closeButtonAria)}">✕</button>
+            <div class="cw-header-actions">
+              <button class="cw-refresh" data-cw="refresh" aria-label="${Utils.escapeHTML(this.config.labels.refreshButtonAria)}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M20 11a8 8 0 1 0-2.34 5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path d="M20 4v7h-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <button class="cw-close" aria-label="${Utils.escapeHTML(this.config.labels.closeButtonAria)}">✕</button>
+            </div>
           </header>
 
           <div class="cw-messages" data-cw="messages"></div>
@@ -711,6 +730,7 @@
       this.els.input = root.querySelector('[data-cw="input"]');
       this.els.sendBtn = root.querySelector('[data-cw="send"]');
       this.els.typingRow = root.querySelector('[data-cw="typing"]');
+      this.els.refreshBtn = root.querySelector('[data-cw="refresh"]');
       this.els.teaser = root.querySelector('[data-cw="teaser"]');
       this.els.teaserClose = root.querySelector('[data-cw="teaser-close"]');
       this.els.teaserOpen = root.querySelector('[data-cw="teaser-open"]');
@@ -721,6 +741,7 @@
     attachEvents() {
       this.els.launcher.addEventListener("click", this.bound.handleLauncherClick);
       this.els.panel.querySelector(".cw-close").addEventListener("click", this.bound.handleCloseClick);
+      this.els.refreshBtn.addEventListener("click", this.bound.handleRefreshClick);
       this.els.sendBtn.addEventListener("click", this.bound.handleSendClick);
       this.els.input.addEventListener("keydown", this.bound.handleInputKeydown);
       this.els.teaserClose.addEventListener("click", this.bound.handleTeaserClose);
@@ -768,6 +789,19 @@
     }
     handleCloseClick() {
       this.close(true);
+    }
+    handleRefreshClick() {
+      if (this.els.refreshBtn) {
+        this.els.refreshBtn.classList.remove("is-rotating");
+        void this.els.refreshBtn.offsetWidth;
+        this.els.refreshBtn.classList.add("is-rotating");
+      }
+
+      this.state.messages = [];
+      this.state.hasShownWelcome = false;
+      this.persistState();
+      this.renderMessages();
+      this.handleWelcomeMessage();
     }
 
     open(triggerCallbacks = true) {
@@ -962,11 +996,11 @@
     send(text) {
       if (this.instance) this.instance.sendUserMessage(text);
     }
+    refresh() {
+      this.instance?.handleRefreshClick();
+    }
     clearHistory() {
-      if (!this.instance) return;
-      this.instance.state.messages = [];
-      this.instance.persistState();
-      this.instance.renderMessages();
+      this.refresh();
     }
   }
 
