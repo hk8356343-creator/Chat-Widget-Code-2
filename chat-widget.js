@@ -1,11 +1,12 @@
 /*!
  * Premium Chat Widget
  * File: chat-widget.js
- * Version: 1.2.0
+ * Version: 1.2.1
  * Notes:
  * - Full file with all previous features preserved
  * - Added extended style color controls via config.style.*
  * - Supports both ui.accentColor and style.* palette overrides
+ * - NEW: Added refresh/clear chat history button in header
  */
 
 (function () {
@@ -204,6 +205,7 @@
       closeButtonAria: "Close chat",
       openButtonAria: "Open chat",
       teaserCloseAria: "Close teaser",
+      refreshButtonAria: "Clear chat history",
     },
 
     callbacks: {
@@ -216,7 +218,7 @@
 
     metadata: {
       source: "website-chat-widget",
-      version: "1.2.0",
+      version: "1.2.1",
       extra: {},
     },
 
@@ -402,6 +404,7 @@
         handleTeaserClose: this.handleTeaserClose.bind(this),
         handleTeaserOpen: this.handleTeaserOpen.bind(this),
         handleSystemThemeChange: this.handleSystemThemeChange.bind(this),
+        handleRefreshClick: this.handleRefreshClick.bind(this),
       };
     }
 
@@ -546,9 +549,18 @@
 .cw-theme-dark .cw-status-dot{border-color:#0b1220}
 .cw-title{font-weight:700;line-height:1.2}
 .cw-subtitle{font-size:12px;opacity:.72;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.cw-header-actions{display:flex;align-items:center;gap:8px}
+.cw-refresh{
+  width:34px;height:34px;border:none;border-radius:10px;background:transparent;cursor:pointer;
+  color:inherit;opacity:.7;transition:background .2s ease,opacity .2s ease,transform .3s ease;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.cw-refresh:hover{background:rgba(148,163,184,.16);opacity:1}
+.cw-refresh:active{transform:rotate(180deg)}
 .cw-close{
   width:34px;height:34px;border:none;border-radius:10px;background:transparent;cursor:pointer;
   color:inherit;opacity:.7;transition:background .2s ease,opacity .2s ease;
+  flex-shrink:0;
 }
 .cw-close:hover{background:rgba(148,163,184,.16);opacity:1}
 .cw-messages{
@@ -683,7 +695,16 @@
                 <div class="cw-subtitle">${Utils.escapeHTML(this.config.company.responseTimeText)}</div>
               </div>
             </div>
-            <button class="cw-close" aria-label="${Utils.escapeHTML(this.config.labels.closeButtonAria)}">✕</button>
+            <div class="cw-header-actions">
+              <button class="cw-refresh" data-cw="refresh" aria-label="${Utils.escapeHTML(this.config.labels.refreshButtonAria)}" title="${Utils.escapeHTML(this.config.labels.refreshButtonAria)}">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="23 4 23 10 17 10"></polyline>
+                  <polyline points="1 20 1 14 7 14"></polyline>
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                </svg>
+              </button>
+              <button class="cw-close" aria-label="${Utils.escapeHTML(this.config.labels.closeButtonAria)}">✕</button>
+            </div>
           </header>
 
           <div class="cw-messages" data-cw="messages"></div>
@@ -714,6 +735,7 @@
       this.els.teaser = root.querySelector('[data-cw="teaser"]');
       this.els.teaserClose = root.querySelector('[data-cw="teaser-close"]');
       this.els.teaserOpen = root.querySelector('[data-cw="teaser-open"]');
+      this.els.refreshBtn = root.querySelector('[data-cw="refresh"]');
 
       if (this.state.isOpen) this.open(false);
     }
@@ -725,6 +747,9 @@
       this.els.input.addEventListener("keydown", this.bound.handleInputKeydown);
       this.els.teaserClose.addEventListener("click", this.bound.handleTeaserClose);
       this.els.teaserOpen.addEventListener("click", this.bound.handleTeaserOpen);
+      if (this.els.refreshBtn) {
+        this.els.refreshBtn.addEventListener("click", this.bound.handleRefreshClick);
+      }
 
       if (window.matchMedia) {
         const mql = window.matchMedia("(prefers-color-scheme: dark)");
@@ -768,6 +793,33 @@
     }
     handleCloseClick() {
       this.close(true);
+    }
+
+    handleRefreshClick() {
+      this.refreshChat();
+    }
+
+    refreshChat() {
+      // Clear all messages
+      this.state.messages = [];
+      this.state.hasShownWelcome = false;
+      this.persistState();
+      
+      // Re-render messages
+      this.renderMessages();
+      
+      // Show welcome message again
+      this.handleWelcomeMessage();
+      
+      // Visual feedback: rotate the refresh button
+      if (this.els.refreshBtn) {
+        this.els.refreshBtn.style.transform = "rotate(360deg)";
+        setTimeout(() => {
+          if (this.els.refreshBtn) {
+            this.els.refreshBtn.style.transform = "rotate(0deg)";
+          }
+        }, 300);
+      }
     }
 
     open(triggerCallbacks = true) {
@@ -928,7 +980,7 @@
       } catch (error) {
         const fallback = this.addMessage({
           role: "bot",
-          text: "Sorry — I’m having trouble connecting right now. Please try again in a moment.",
+          text: "Sorry — I'm having trouble connecting right now. Please try again in a moment.",
         });
         if (typeof this.config.callbacks.onError === "function") this.config.callbacks.onError(error, fallback);
         console.error("[ChatWidget] Message send failed:", error);
@@ -967,6 +1019,10 @@
       this.instance.state.messages = [];
       this.instance.persistState();
       this.instance.renderMessages();
+    }
+    refresh() {
+      if (!this.instance) return;
+      this.instance.refreshChat();
     }
   }
 
